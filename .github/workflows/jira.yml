@@ -1,0 +1,45 @@
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Create release
+        uses: extenda/actions/conventional-release@v0
+        id: semver
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build release ...
+
+  jira-release:
+    runs-on: ubuntu-latest
+    needs: release
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: extenda/actions/gcp-secret-manager@v0
+        with:
+          service-account-key: ${{ secrets.SECRET_AUTH }}
+          secrets: |
+            JIRA_PASSWORD: jira-password
+            JIRA_USERNAME: jira-username
+
+      - uses: extenda/actions/conventional-version@v0
+        id: semver
+
+      - name: Update JIRA release notes
+        uses: extenda/actions/jira-releasenotes@v0
+        with:
+          jira-project: ELY
+
+      - name: Create JIRA release
+        uses: extenda/actions/jira-release@v0
+        with:
+          jira-project: ELY
+          version: ${{ steps.outputs.semver.release-version }}
